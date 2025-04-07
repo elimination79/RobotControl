@@ -18,47 +18,45 @@ public:
     static const int FORWARD = 1;
     static const int BACKWARD = 2;
     static const int LEFT = 3;
-    static const int RIGHT = 4;
-    // HEADERSIZE: calculated by hand.
-    // Header contains: unsigned short (2 bytes) + command flags (1 byte) = 3 bytes.
+    static const int RIGHT = 4; 
+
+
     static const int HEADERSIZE = 3;
 
     // Structure for the Header.
     // Contains a 2-byte PktCount and a 1-byte command flag field.
     struct Header {
-        unsigned short PktCount;  // 2 bytes.
-        // Bit-fields for command flags.
+        unsigned short PktCount;  
         unsigned char Drive : 1;
         unsigned char Status : 1;
         unsigned char Sleep : 1;
         unsigned char Ack : 1;
-        unsigned char padding : 4;  // 4 bits of padding to complete 1 byte.
+        unsigned char padding : 4;  
     };
 
     // Structure for drive command parameters.
     struct DriveBody {
-        int Direction;  // e.g., FORWARD, BACKWARD, etc.
-        int Duration;   // Number of seconds to execute the directive.
-        int Speed;      // Motor speed value (typically between 80-100%).
+        int Direction;  
+        int Duration;   
+        int Speed;      
     };
 
 private:
     // Private structure to define a complete command packet.
     struct CmdPacket {
-        Header header;  // Packet header.
-        char* Data;     // Pointer to the packet body.
-        char CRC;       // 1-byte CRC checksum.
+        Header header;  
+        char* Data;     
+       unsigned char CRC;       
     };
 
-    CmdPacket packet;    // The command packet instance.
-    char* RawBuffer;     // Buffer to hold the serialized packet.
-    int dataLength;      // Length (in bytes) of the packet body.
+    CmdPacket packet;    
+    char* RawBuffer;     
+    int dataLength;      
 
 public:
-    // Default constructor.
-    // Sets all Header information to zero, the Data pointer to nullptr, and the CRC to zero.
+   
     PktDef() : RawBuffer(nullptr), dataLength(0) {
-        std::memset(&packet.header, 0, sizeof(packet.header));
+        memset(&packet.header, 0, sizeof(packet.header));
         packet.Data = nullptr;
         packet.CRC = 0;
     }
@@ -67,18 +65,16 @@ public:
     // and populates the Header, Body, and CRC of the object.
     
     PktDef(char* rawBuffer) : RawBuffer(nullptr), dataLength(0) {
-        // Parse header.
+       
         std::memcpy(&packet.header, rawBuffer, HEADERSIZE);
 
-        // In this example we do not know the body length.
-        // We assume no body data (dataLength remains 0) and set Data to nullptr.
+        
         packet.Data = nullptr;
 
-        // Assume the CRC is the byte immediately following the header.
-        packet.CRC = *(rawBuffer + HEADERSIZE);
+        packet.CRC = *(reinterpret_cast<unsigned char*>(rawBuffer + HEADERSIZE));
     }
 
-    // Set function: sets the command flag in the header based on the CmdType.
+    // sets the command flag in the header based on the CmdType.
     void SetCmd(CmdType cmd) {
         // Clear all flags.
         packet.header.Drive = 0;
@@ -90,26 +86,26 @@ public:
         else if (cmd == SLEEP)
             packet.header.Sleep = 1;
         else if (cmd == RESPONSE)
-            packet.header.Status = 1; // RESPONSE corresponds to the Status flag.
+            packet.header.Status = 1; 
     }
 
-    // Set function: takes a pointer to a RAW data buffer and its size in bytes.
+    
     // Allocates the packet's Body field and copies the provided data.
     void SetBodyData(char* data, int size) {
         if (packet.Data) {
             delete[] packet.Data;
         }
         packet.Data = new char[size];
-        std::memcpy(packet.Data, data, size);
+        memcpy(packet.Data, data, size);
         dataLength = size;
     }
 
-    // Set function: sets the PktCount field in the header.
+    //  sets the PktCount field in the header.
     void SetPktCount(int count) {
         packet.header.PktCount = static_cast<unsigned short>(count);
     }
 
-    // Query function: returns the command type based on the set flag.
+    //  returns the command type based on the set flag.
     CmdType GetCmd() {
         if (packet.header.Drive == 1)
             return DRIVE;
@@ -117,77 +113,74 @@ public:
             return SLEEP;
         else if (packet.header.Status == 1)
             return RESPONSE;
-        // Default return (should not happen if flags are set properly).
+        
         return DRIVE;
     }
 
-    // Query function: returns true if the Ack flag is set, false otherwise.
+    //  returns true if the Ack flag is set, false otherwise.
     bool GetAck() {
         return packet.header.Ack != 0;
     }
 
-    // Query function: returns the total packet length in bytes.
-    // Total length = header size + body data length + 1 byte for CRC.
+    //  returns the total packet length in bytes
     int GetLength() {
         return HEADERSIZE + dataLength + 1;
     }
 
-    // Query function: returns a pointer to the packet's Body field.
+    //  returns a pointer to the packet's Body field.
     char* GetBodyData() {
         return packet.Data;
     }
 
-    // Query function: returns the PktCount value.
+    // returns the PktCount value.
     int GetPktCount() {
         return packet.header.PktCount;
     }
 
-    // Function: takes a pointer to a RAW data buffer and its size, calculates the CRC and returns true if the calculated CRC matches the CRC in the buffer.
+    // takes a pointer to a RAW data buffer and its size, calculates the CRC and returns true if the calculated CRC matches the CRC in the buffer.
    
     bool CheckCRC(char* buffer, int size) {
         if (size < HEADERSIZE + 1)
             return false; // Not enough data.
-        char computedCRC = 0;
+        unsigned char computedCRC = 0;
         for (int i = 0; i < size - 1; ++i) {
-            computedCRC ^= buffer[i];
+            computedCRC ^= static_cast<unsigned char>(buffer[i]);
         }
-        return (computedCRC == buffer[size - 1]);
+        return (computedCRC == static_cast<unsigned char>(buffer[size - 1]));
     }
 
-    // Function: calculates the CRC for the current packet by XORing all bytes of the header
-    // and the body data, then sets the packet's CRC field.
+    // calculates the CRC for the current packet
     void CalcCRC() {
-        char crc = 0;
-        // Process header bytes.
+        unsigned char crc = 0;
+        
         unsigned char* headerBytes = reinterpret_cast<unsigned char*>(&packet.header);
         for (int i = 0; i < HEADERSIZE; ++i) {
             crc ^= headerBytes[i];
         }
-        // Process body data (if any).
+        
         for (int i = 0; i < dataLength; ++i) {
             crc ^= static_cast<unsigned char>(packet.Data[i]);
         }
         packet.CRC = crc;
     }
 
-    // Function: allocates the private RawBuffer and serializes the packet into it.
-    // Returns the address of the allocated RawBuffer.
+    //allocates the private RawBuffer and serializes the packet into it.
+   
     char* GenPacket() {
-        // Free any previously allocated RawBuffer.
         if (RawBuffer) {
             delete[] RawBuffer;
         }
         int totalLength = GetLength();
         RawBuffer = new char[totalLength];
 
-        // Copy header into RawBuffer.
-        std::memcpy(RawBuffer, &packet.header, HEADERSIZE);
-        // Copy body data (if any) into RawBuffer.
+        
+        memcpy(RawBuffer, &packet.header, HEADERSIZE);
+        
         if (dataLength > 0 && packet.Data) {
-            std::memcpy(RawBuffer + HEADERSIZE, packet.Data, dataLength);
+            memcpy(RawBuffer + HEADERSIZE, packet.Data, dataLength);
         }
-        // Copy CRC at the end.
-        RawBuffer[totalLength - 1] = packet.CRC;
+       
+        RawBuffer[totalLength - 1] = static_cast<char>(packet.CRC);
         return RawBuffer;
     }
 
@@ -204,7 +197,9 @@ public:
     }
 };
 
+int main() {
+    
+}
 
 
-int main(); 
 
