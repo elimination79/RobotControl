@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "CppUnitTest.h"
-#include "PktDef.cpp"
+#include "PktDef.cpp" 
+#include "PktDef.h"
 using namespace Microsoft::VisualStudio::CppUnitTestFramework; 
 
 
@@ -71,7 +72,7 @@ namespace UnitTestPktDef
 
             char* bodyData = pkt.GetBodyData();
             Assert::IsNotNull(bodyData, L"Body data pointer should not be null");
-            Assert::AreEqual(0, std::memcmp(bodyData, testData, sizeof(testData)), L"Body data does not match");
+            Assert::AreEqual(0, memcmp(bodyData, testData, sizeof(testData)), L"Body data does not match");
 
             // Expected total length: HEADERSIZE + body size + 1 (CRC)
             Assert::AreEqual(PktDef::HEADERSIZE + static_cast<int>(sizeof(testData)) + 1, pkt.GetLength(), L"Packet length is incorrect");
